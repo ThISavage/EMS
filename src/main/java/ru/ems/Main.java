@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
+import java.nio.file.Files;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.Scanner;
@@ -37,8 +38,9 @@ public class Main {
     public static int BLOCK_SIZE = (int) ((ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getCommitted() - ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed()) / (30 * 4));
 
     public static void main(String[] args) throws IOException {
+            prepare();
             System.out.println("Start: " + new Date());
-            System.out.println("Проверка после генерации: " + new Date() + " = " + isSorted(MainFile.UNSORTED.getFile()));
+            System.out.println("Проверка исходного файла: " + new Date() + " = " + isSorted(MainFile.UNSORTED.getFile()));
             System.out.println("Объем блока после генерации: " + BLOCK_SIZE);
             ExternalMergeSort.sort();
             System.out.println("Отсортированный файл создан: " + new Date());
@@ -70,5 +72,26 @@ public class Main {
         }
     }
 
+
+    /**
+     * Метод подготавливает окружение, удаляя существующие файлы, связанные с перечислением MainFile.
+     * Проверяются и удаляются следующие файлы:
+     * - файл BLOCKS
+     * - файл MERGE
+     * - файл SORTED
+     *
+     * @throws IOException если произошла ошибка ввода-вывода при попытке удаления файлов.
+     */
+    private static void prepare() throws IOException {
+        if (Files.exists(MainFile.BLOCKS.getFile().toPath())){
+            Files.delete(MainFile.BLOCKS.getFile().toPath());
+        }
+        if (Files.exists(MainFile.MERGE.getFile().toPath())){
+            Files.delete(MainFile.MERGE.getFile().toPath());
+        }
+        if (Files.exists(MainFile.SORTED.getFile().toPath())){
+            Files.delete(MainFile.SORTED.getFile().toPath());
+        }
+    }
 
 }
