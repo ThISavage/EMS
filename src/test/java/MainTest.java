@@ -13,12 +13,12 @@ public class MainTest {
     void testIsSorted() throws IOException {
         File file = new File("src/test/resources/test_sorted");
         try(PrintWriter writer = new PrintWriter(new FileWriter(file))){
-            writer.println("A");
-            writer.println("Б");
-            writer.println("Я");
+            writer.println("A:15");
+            writer.println("B:12");
+            writer.println("C:10");
         }
-        Assertions.assertEquals(false, Main.isSorted(new File("src/test/resources/unsorted.txt")));
-        Assertions.assertEquals(true, Main.isSorted(file));
+        Assertions.assertFalse(Main.isSorted(new File("src/test/resources/unsorted.txt")));
+        Assertions.assertTrue(Main.isSorted(file));
         file.delete();
     }
 }

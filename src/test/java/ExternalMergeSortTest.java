@@ -1,42 +1,42 @@
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import ru.ems.ExternalMergeSort;
+import ru.ems.enums.MainFile;
 
-import java.io.File;
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.nio.file.Files;
+
 
 class ExternalMergeSortTest {
 
     @Test
     void testSplitIntoBlocks() throws IOException {
-        File source = new File("src/test/resources/unsorted.txt");
-        List<String> blocks = ExternalMergeSort.splitIntoBlocks(source);
-        Assertions.assertEquals(100, blocks.size());
+        ExternalMergeSort.splitIntoBlocks();
+        Assertions.assertTrue(MainFile.BLOCKS.getFile().length() > 0);
+        Files.delete(MainFile.BLOCKS.getFile().toPath());
     }
 
     @Test
     void testCombiningBlocks() throws IOException {
-        File file = new File("src/test/resources/unsorted.txt");
-        List<String> mergedBlocks = ExternalMergeSort.combiningBlocks(ExternalMergeSort.splitIntoBlocks(file));
-        Assertions.assertEquals(1, mergedBlocks.size());
-    }
-
-    @Test
-    void testSaveToFile() throws IOException {
-        List<String> testList = new ArrayList<>(Arrays.asList("src/test/resources/unsorted.txt"));
-        Assertions.assertEquals(ExternalMergeSort.saveToFile(testList).getPath(),"src"+File.separator+"main"+File.separator+"resources"+File.separator+"sorted.txt");
+        ExternalMergeSort.splitIntoBlocks();
+        ExternalMergeSort.combiningBlocks();
+        int lineCount = 0;
+        try (BufferedReader reader = new BufferedReader(new FileReader(MainFile.BLOCKS.getFile()))) {
+            while (reader.readLine() != null) {
+                lineCount++;
+            }
+        }
+        Assertions.assertEquals(1, lineCount);
+        Files.delete(MainFile.BLOCKS.getFile().toPath());
     }
 
     @Test
     void testSortFile() throws IOException {
-        File source = new File("src/test/resources/unsorted.txt");
-        File sortedFile = ExternalMergeSort.sortFile(source);
-        Assertions.assertEquals("sorted.txt", sortedFile.getName());
-        Assertions.assertEquals(50371, sortedFile.length());
+        ExternalMergeSort.sort();
+        Assertions.assertEquals("sorted.txt", MainFile.SORTED.getFile().getName());
+        Assertions.assertEquals(MainFile.UNSORTED.getFile().length(), MainFile.SORTED.getFile().length());
+        Files.delete(MainFile.SORTED.getFile().toPath());
     }
-
-
 }
