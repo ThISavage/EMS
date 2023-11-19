@@ -1,114 +1,156 @@
 package ru.ems;
 
+import ru.ems.enums.MainFile;
+import ru.ems.enums.TempFile;
+
 import java.io.*;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Scanner;
+import java.nio.file.Files;
+import java.util.*;
+
+import static ru.ems.Main.BLOCK_SIZE;
+import static ru.ems.Main.comparator;
 
 /**
- * Класс ExternalMergeSort предоставляет метод для сортировки чисел во входном файле и сохранения отсортированных данных в выходном файле.
+ * Класс ExternalMergeSort предоставляет методы для внешней сортировки данных, используя алгоритм сортировки слиянием.
+ * Данный класс предназначен для сортировки больших объемов данных, не умещающихся в оперативной памяти целиком.
  */
 public class ExternalMergeSort {
-    private static final int BLOCK_SIZE = 10; // Размер блока на который дробится исходный файл
-    private static final String OUT_FILE_NAME = "src" + File.separator + "main" + File.separator + "resources" + File.separator + "sorted.txt"; // Путь до отсортированного файла
-    private static final String PREFIX = "block";
-    private static final String SUFFIX = ".txt";
-
     /**
-     * Сортирует строки во входном файле и сохраняет отсортированные данные в выходном файле.
+     * Выполняет внешнюю сортировку данных.
      *
-     * @param source Входной файл со строками, который нужно отсортировать.
-     * @return Файл с отсортированными строками.
-     * @throws IOException Если возникает ошибка ввода-вывода при работе с файлами.
+     * @throws IOException Возникает при ошибке ввода/вывода в процессе сортировки.
      */
-    public static File sortFile(File source) throws IOException {
-        List<String> blocks = splitIntoBlocks(source); // Разбиение всех данных на блоки удовлетворительного размера
-        List<String> mergedBlock = combiningBlocks(blocks); // Слияние всех блоков в 1
-        return saveToFile(mergedBlock); // Запись в файл
+    public static void sort() throws IOException {
+        splitIntoBlocks(); // Разбиение всех данных на блоки удовлетворительного размера
+        combiningBlocks(); // Слияние всех блоков в один
+        saveToOutFile(); // Запись в итоговый файл
     }
 
     /**
-     * Разбивает содержимое файла на блоки, сортирует их и сохраняет во временные файлы.
+     * Разбивает исходные данные на блоки заданного размера и сортирует каждый блок.
      *
-     * @param source Файл, содержимое которого нужно разбить на блоки.
-     * @return Список временных файлов, в которых хранятся отсортированные блоки.
-     * @throws IOException Если произошла ошибка при разбиении файла на блоки или при записи во временные файлы.
+     * @throws IOException Возникает при ошибке ввода/вывода в процессе разбиения данных.
      */
-    public static List<String> splitIntoBlocks(File source) throws IOException {
+    public static void splitIntoBlocks() throws IOException {
         List<String> currentBlock = new ArrayList<>(BLOCK_SIZE);
-        List<String> blocks = new ArrayList<>();
-        try (FileInputStream fileInputStream = new FileInputStream(source); Scanner scanner = new Scanner(fileInputStream)) {
-            while (scanner.hasNextLine()) {
-                String valueFromFile = scanner.nextLine();
+        try (BufferedReader reader = new BufferedReader(new FileReader(MainFile.UNSORTED.getFile()))) {
+            String valueFromFile;
+            while ((valueFromFile = reader.readLine())!=null) {
                 currentBlock.add(valueFromFile);
                 if (currentBlock.size() == BLOCK_SIZE) {
-                    Collections.sort(currentBlock);
-                    blocks.add(writeToTempFile(currentBlock));
+                    currentBlock.sort(comparator);
+                    String pathToCurrentBlock = addToTempFile(currentBlock);
+                    addToMainFile(pathToCurrentBlock);
                     currentBlock.clear();
                 }
             }
             if (!currentBlock.isEmpty()) {
-                Collections.sort(currentBlock);
-                blocks.add(writeToTempFile(currentBlock));
+                currentBlock.sort(comparator);
+                String pathToCurrentBlock = addToTempFile(currentBlock);
+                addToMainFile(pathToCurrentBlock);
+                currentBlock.clear();
             }
         }
-        return blocks;
-    }
-
-    /**
-     * Метод объединяет блоки текста, представленные в виде списка строк.
-     * Процесс объединения продолжается до тех пор, пока в списке не останется
-     * только один блок текста. Для объединения используется метод sortAndMergeTwoBlocks.
-     *
-     * @param allBlocks Список строк, представляющих блоки текста.
-     * @return Список строк, содержащий единственный объединенный блок текста.
-     * @throws IOException Если произошла ошибка ввода-вывода при сортировке и объединении блоков.
-     */
-    public static List<String> combiningBlocks(List<String> allBlocks) throws IOException {
-        while (allBlocks.size() > 1) {
-            List<String> mergedBlocks = new ArrayList<>();
-            for (int i = 0; i < allBlocks.size(); i += 2) {
-                String mergedBlock = sortAndMergeTwoBlocks(allBlocks.get(i), i + 1 < allBlocks.size() ? allBlocks.get(i + 1) : null);
-                mergedBlocks.add(mergedBlock);
-            }
-            allBlocks = mergedBlocks;
-        }
-        return allBlocks;
     }
 
 
     /**
-     * Сохраняет значения из списка в файл и возвращает созданный файл.
+     * Выполняет слияние отсортированных блоков данных в один файл.
      *
-     * @param outBlock Список строк, значения которых нужно записать в файл.
-     * @return Файл, в который были записаны значения из списка.
-     * @throws IOException Если произошла ошибка при чтении или записи файла.
+     * @throws IOException Возникает при ошибке ввода/вывода в процессе слияния блоков.
      */
-    public static File saveToFile(List<String> outBlock) throws IOException {
-        File output = new File(OUT_FILE_NAME);
-        try (FileInputStream fileInputStream = new FileInputStream(outBlock.get(0)); Scanner scanner = new Scanner(fileInputStream)) {
-            try (PrintWriter pw = new PrintWriter(OUT_FILE_NAME)) {
-                while (scanner.hasNextLine()) {
-                    String stringFromFile = scanner.nextLine();
-                    pw.println(stringFromFile);
+    public static void combiningBlocks() throws IOException {
+        String path = null;
+        try (BufferedReader reader = new BufferedReader(new FileReader(MainFile.BLOCKS.getFile()))) {
+            String s1;
+            String s2;
+            while ((s1 = reader.readLine()) != null) {
+                if (s1.equals(path)) {
+                    reader.readLine();
                 }
-                pw.flush();
+                s2 = reader.readLine();
+                path = sortAndMergeTwoBlocks(s1, s2);
             }
+        }finally {
+            Files.delete(MainFile.BLOCKS.getFile().toPath());
         }
-        return output;
+        addToMainFile(path);
     }
 
     /**
-     * Записывает список чисел во временный файл и возвращает его путь.
+     * Сортирует и объединяет два блока из файлов и возвращает путь к созданному объединенному файлу.
      *
-     * @param block Список чисел, который нужно записать в файл.
-     * @return Путь к временному файлу с записанными числами.
-     * @throws IOException Если возникает ошибка ввода-вывода при создании временного файла.
+     * @param firstBlockPath  Путь к первому блоку для объединения.
+     * @param secondBlockPath Путь ко второму блоку для объединения.
+     * @return Путь к созданному объединенному временному файлу.
+     * @throws IOException Если произошла ошибка ввода/вывода при чтении или записи файлов.
      */
-    protected static String writeToTempFile(List<String> block) throws IOException {
-        File file = File.createTempFile(PREFIX, SUFFIX);
-        file.deleteOnExit();
+    private static String sortAndMergeTwoBlocks(String firstBlockPath, String secondBlockPath) throws IOException {
+        if (secondBlockPath == null) {
+            return firstBlockPath;
+        }
+        try (BufferedReader firstBlockReader = new BufferedReader(new FileReader(firstBlockPath));
+             BufferedReader secondBlockReader = new BufferedReader(new FileReader(secondBlockPath))) {
+            String s1 = firstBlockReader.readLine();
+            String s2 = secondBlockReader.readLine();
+            while (s1 != null || s2 != null) {
+                if (s1 == null) {
+                    addToMergeFile(s2);
+                    s2 = secondBlockReader.readLine();
+                } else if (s2 == null) {
+                    addToMergeFile(s1);
+                    s1 = firstBlockReader.readLine();
+                } else {
+                    int comparisonResult = comparator.compare(s1, s2);
+                    if (comparisonResult < 0) {
+                        addToMergeFile(s1);
+                        s1 = firstBlockReader.readLine();
+                    } else {
+                        addToMergeFile(s2);
+                        s2 = secondBlockReader.readLine();
+                    }
+                }
+            }
+            String mergedBlockPath = writeToTempFile();
+            addToMainFile(mergedBlockPath);
+            return mergedBlockPath;
+        }finally {
+            new File(firstBlockPath).deleteOnExit();
+            new File(secondBlockPath).deleteOnExit();
+            Files.delete(MainFile.MERGE.getFile().toPath());
+        }
+    }
+
+    /**
+     * Сохраняет отсортированные данные в итоговый файл.
+     *
+     * @throws IOException Возникает при ошибке ввода/вывода в процессе записи в файл.
+     */
+    private static void saveToOutFile() throws IOException {
+        try (BufferedReader file = new BufferedReader(new FileReader(MainFile.BLOCKS.getFile()))) {
+            try (BufferedReader reader = new BufferedReader(new FileReader(file.readLine()));
+                 BufferedWriter writer = new BufferedWriter(new FileWriter(MainFile.SORTED.getFile()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    writer.write(line);
+                    writer.newLine();
+                }
+
+            }
+        }finally {
+            Files.delete(MainFile.BLOCKS.getFile().toPath());
+        }
+    }
+
+    /**
+     * Добавляет список строк во временный файл и возвращает путь к созданному файлу.
+     *
+     * @param block Список строк для добавления в файл.
+     * @return Путь к созданному временному файлу.
+     * @throws IOException Если произошла ошибка ввода/вывода при создании файла или записи в него.
+     */
+    protected static String addToTempFile(List<String> block) throws IOException {
+        File file = File.createTempFile(TempFile.BLOCK_TEMP_FILE.getPrefix(), TempFile.BLOCK_TEMP_FILE.getSuffix());
         try (PrintWriter pw = new PrintWriter(file)) {
             for (String element : block) {
                 pw.println(element);
@@ -119,40 +161,47 @@ public class ExternalMergeSort {
     }
 
     /**
-     * Объединяет два отсортированных блока в один отсортированный блок и возвращает путь к временному файлу с объединенными данными.
+     * Записывает содержимое основного файла во временный файл и возвращает путь к созданному файлу.
      *
-     * @param firstBlockPath  Путь к первому блоку.
-     * @param secondBlockPath Путь ко второму блоку.
-     * @return Путь к временному файлу с объединенными данными.
-     * @throws IOException Если возникает ошибка ввода-вывода при объединении блоков и создании временного файла.
+     * @return Путь к созданному временному файлу.
+     * @throws IOException Если произошла ошибка ввода/вывода при создании файла или записи в него.
      */
-    private static String sortAndMergeTwoBlocks(String firstBlockPath, String secondBlockPath) throws IOException {
-        if (secondBlockPath == null) {
-            return firstBlockPath;
-        }
-        List<String> mergedBlock = new ArrayList<>(2 * BLOCK_SIZE);
-        try (FileInputStream fileInputStream = new FileInputStream(firstBlockPath); Scanner firstBlock = new Scanner(fileInputStream); FileInputStream fileInputStream2 = new FileInputStream(secondBlockPath); Scanner secondBlock = new Scanner(fileInputStream2)) {
-            String value1 = firstBlock.hasNextLine() ? firstBlock.nextLine() : null;
-            String value2 = secondBlock.hasNextLine() ? secondBlock.nextLine() : null;
-            while (value1 != null || value2 != null) {
-                if (value1 == null) {
-                    mergedBlock.add(value2);
-                    value2 = secondBlock.hasNextLine() ? secondBlock.nextLine() : null;
-                } else if (value2 == null) {
-                    mergedBlock.add(value1);
-                    value1 = firstBlock.hasNextLine() ? firstBlock.nextLine() : null;
-                } else if (value1.compareTo(value2) < 0) {
-                    mergedBlock.add(value1);
-                    value1 = firstBlock.hasNextLine() ? firstBlock.nextLine() : null;
-                } else {
-                    mergedBlock.add(value2);
-                    value2 = secondBlock.hasNextLine() ? secondBlock.nextLine() : null;
-                }
+    protected static String writeToTempFile() throws IOException {
+        File out = File.createTempFile(TempFile.BLOCK_TEMP_FILE.getPrefix(), TempFile.BLOCK_TEMP_FILE.getSuffix());
+        try (BufferedReader reader = new BufferedReader(new FileReader(MainFile.MERGE.getFile()));
+             BufferedWriter writer = new BufferedWriter(new FileWriter(out))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                writer.write(line);
+                writer.newLine();
             }
-            String mergedBlockPath = writeToTempFile(mergedBlock);
-            mergedBlock.clear();
-            return mergedBlockPath;
+        }
+        return out.getAbsolutePath();
+    }
+
+    /**
+     * Добавляет элемент в файл слияния.
+     *
+     * @param element Элемент для добавления в основной файл.
+     * @throws IOException Если произошла ошибка ввода/вывода при записи в файл.
+     */
+    protected static void addToMergeFile(String element) throws IOException {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(MainFile.MERGE.getFile(), true))) {
+            writer.write(element);
+            writer.newLine();
         }
     }
 
+    /**
+     * Добавляет путь к файлу в основной файл.
+     *
+     * @param path Путь к файлу для добавления в основной файл.
+     * @throws IOException Если произошла ошибка ввода/вывода при записи в файл.
+     */
+    protected static void addToMainFile(String path) throws IOException {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(MainFile.BLOCKS.getFile(), true))) {
+            writer.write(path);
+            writer.newLine();
+        }
+    }
 }
